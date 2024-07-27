@@ -1,2 +1,2 @@
-# spatial_data_labeling_dashboard
+# Spatial Data Labeling Dashboard
 A dash dashboard used for labeling spatial data for my data pipelines

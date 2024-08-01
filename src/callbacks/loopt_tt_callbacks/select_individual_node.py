@@ -5,6 +5,7 @@ from dash import Input, Output, State, html
 import dash_bootstrap_components as dbc
 from neo4j import GraphDatabase
 import dash_leaflet as dl
+import json
 
 from callbacks.global_callbacks.environment_management import load_environment_variables
 
@@ -52,7 +53,6 @@ def display_selected_article_node(active_cell: dict | None, environment: str):
     ]
 
     if selected_article['point'] is not None:
-        print(selected_article['point'], "HELLO WORLD")
         edit_layer_children.append(dl.Marker(position=[selected_article['point'].y, selected_article['point'].x]))
 
     # Full Title description component:
@@ -67,16 +67,17 @@ def display_selected_article_node(active_cell: dict | None, environment: str):
                     html.P(selected_article['content'])
                 ])
             ]),
-            dbc.Col(
-                dl.Map(children=[
-                    dl.TileLayer(),
-                    dl.FeatureGroup(edit_layer_children)],
-                    center=[10, -61],
-                    zoom=9,
-                    style={'height': '70vh'}
-                )
-            )
         ]),
+
+        dbc.Row(
+            dl.Map(children=[
+                dl.TileLayer(),
+                dl.FeatureGroup(edit_layer_children)],
+                center=[10, -61],
+                zoom=10,
+                style={'height': '70vh'}
+            )
+        ),
 
         dbc.Row(dbc.Button("Insert Node", id='insert_article_node_btn', n_clicks=0), style={'margin': "1rem"}),
 
@@ -123,6 +124,23 @@ def save_or_update_article_node(n_clicks: int | None, active_cell: dict, existin
         }
     )
 
-    return html.Pre(str(records[0].data()))
+    updated_record_components = html.Div([
+
+        dbc.Row(html.H4(f"{records[0].data()['n']['title']} updated")),
+
+        html.Pre(json.dumps(records[0].data()['n'], indent=4)),
+
+        dl.Map(
+            [
+            dl.TileLayer(),
+            dl.Marker(position=[records[0].data()['n']['point'].y,records[0].data()['n']['point'].x])
+            ],
+            center=[10, -61],
+            zoom=10,
+            style={'height': '70vh'}
+        )   
+    ])
+
+    return updated_record_components
 
    

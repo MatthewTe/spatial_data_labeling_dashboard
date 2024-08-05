@@ -1,11 +1,13 @@
 import dash
 from dash.exceptions import PreventUpdate
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html, dcc, ctx
 
 import dash_bootstrap_components as dbc
 from neo4j import GraphDatabase
 import dash_leaflet as dl
 import json
+import pandas as pd
+import geopandas as gpd
 
 from callbacks.global_callbacks.environment_management import load_environment_variables
 
@@ -55,6 +57,14 @@ def display_selected_article_node(active_cell: dict | None, environment: str):
     if selected_article['point'] is not None:
         edit_layer_children.append(dl.Marker(position=[selected_article['point'].y, selected_article['point'].x]))
 
+    # Loading in all tt cities:
+    all_tt_cities_df = pd.read_csv("./data/tt_cities.csv")
+    all_tt_city_values = all_tt_cities_df['city'].to_list()
+
+    # Loading all roads:
+    all_tt_roads_df = pd.read_csv("./data/all_roads_tt.csv")
+    all_roads_lst = all_tt_roads_df['name'].unique()
+
     # Full Title description component:
     selected_row_component = html.Div([
         dbc.Row([
@@ -69,14 +79,28 @@ def display_selected_article_node(active_cell: dict | None, environment: str):
             ]),
         ]),
 
+        dbc.Row([
+            dbc.Col([
+                html.H5("City:"),
+                dcc.Dropdown(id='trinidad_cities_dropdown', options=all_tt_city_values) 
+            ]),
+            dbc.Col([
+                html.H5("Road:"),
+                dcc.Dropdown(id='trinidad_roads_dropdown', options=all_roads_lst) 
+            ])
+       ], style={'margin': '1rem'}),
+
         dbc.Row(
+            id="tt_location_map_parent_container",
+            children=[
             dl.Map(children=[
                 dl.TileLayer(),
                 dl.FeatureGroup(edit_layer_children)],
+                id='tt_location_inital_map',
                 center=[10, -61],
                 zoom=10,
                 style={'height': '70vh'}
-            )
+            )]
         ),
 
         dbc.Row(dbc.Button("Insert Node", id='insert_article_node_btn', n_clicks=0), style={'margin': "1rem"}),
@@ -143,4 +167,43 @@ def save_or_update_article_node(n_clicks: int | None, active_cell: dict, existin
 
     return updated_record_components
 
-   
+@dash.callback(
+    Output("tt_location_inital_map", "center"),
+    Output("tt_location_inital_map", "zoom"),
+
+    Input("trinidad_cities_dropdown", "value"),
+    Input("trinidad_roads_dropdown", "value"),
+
+    State("tt_location_inital_map", "children")
+)
+def zoom_to_city_or_road(selected_city: str | None, selected_road: str | None, map_children: list):
+    
+    if ctx.triggered_id == "trinidad_cities_dropdown":
+
+        if selected_city is None:
+            raise PreventUpdate
+        
+        cities_df = pd.read_csv("./data/tt_cities.csv")
+        city_row = cities_df[cities_df['city'] == selected_city]
+        city_lat, city_lon = city_row['lat'].iloc[0], city_row['lng'].iloc[0]
+
+        return [city_lat, city_lon], 12
+
+    elif ctx.triggered_id == "trinidad_roads_dropdown":
+
+        roads_gdf = gpd.read_file("./data/hotosm_tto_roads_lines_shp.shp")
+        selected_road = roads_gdf[roads_gdf['name'] == selected_road]
+
+        road_linestring = selected_road['geometry'].iloc[0]
+        road_start_vertex = road_linestring.coords[0]
+
+        return [road_start_vertex[1], road_start_vertex[0]], 18
+
+    else:
+        raise PreventUpdate
+
+def zoom_to_road(selected_road: str | None):
+
+    if selected_road is None:
+        raise PreventUpdate
+

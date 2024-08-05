@@ -16,6 +16,8 @@ def load_all_article_nodes(_, environment: str | None):
 
     env: dict = load_environment_variables(environment)
 
+    print(env['neo4j_url'], (env['neo4j_username'], env['neo4j_password']))
+
     with GraphDatabase.driver(env['neo4j_url'], auth=(env['neo4j_username'], env['neo4j_password'])) as driver:
         driver.verify_connectivity()
 
